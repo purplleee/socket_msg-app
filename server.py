@@ -50,18 +50,27 @@ class ChatServer:
         return username in self.user_credentials and self.user_credentials[username] == password
 
     def register_user(self, username, password):
-        """Register a new user"""
+        """Register a new user and save to a .txt file"""
         if username in self.user_credentials:
             return False
         self.user_credentials[username] = password
+        
+        # Save to user_info.txt
+        with open("user_info.txt", "a") as file:
+            file.write(f"{username}:{password}\n")
+        
         return True
 
 
     def handle_client(self, client_socket):
-        """Modified handle_client method with authentication"""
+        """Modified handle_client method with authentication and debugging"""
         try:
             # Receive authentication data
             auth_data = client_socket.recv(1024).decode('utf-8').split(':')
+            
+            # Debug: Print the received data
+            print(f"DEBUG - Received auth data: {auth_data}")
+            
             if len(auth_data) != 2:
                 client_socket.send("Invalid authentication format.".encode('utf-8'))
                 return
@@ -104,6 +113,7 @@ class ChatServer:
             print(f"Error handling client: {e}")
         finally:
             self.remove_client(client_socket)
+
 
     def process_command(self, client_socket, command):
         """Enhanced process_command method with user management commands"""

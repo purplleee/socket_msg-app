@@ -16,22 +16,31 @@ class ChatClient:
             password = input("Enter password: ")
             
             if choice == "2":
-                username = f"NEW:{username}"
+                # Add a clear identifier for registration requests
+                auth_string = f"NEW|{username}|{password}"
+            else:
+                auth_string = f"{username}|{password}"
             
-            return username, password
+            return auth_string
     
     def connect(self):
-        """Modified connect method with authentication"""
+        """Modified connect method with authentication and debugging"""
         try:
             self.client.connect((self.host, self.port))
             
             # Handle authentication
             username, password = self.register_or_login()
             auth_string = f"{username}:{password}"
+            
+            # Debug: Print the auth string to verify the format
+            print(f"DEBUG - Sending auth string: {auth_string}")
+            
             self.client.send(auth_string.encode('utf-8'))
             
             # Receive authentication response
             response = self.client.recv(1024).decode('utf-8')
+            print(f"DEBUG - Server response: {response}")
+            
             if "Invalid" in response or "exists" in response:
                 print(response)
                 self.client.close()
