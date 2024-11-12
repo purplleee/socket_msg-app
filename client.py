@@ -16,7 +16,7 @@ class ChatClient:
             password = input("Enter password: ")
             
             if choice == "2":
-                # Add a clear identifier for registration requests
+                # Use "NEW|" to mark registration requests
                 auth_string = f"NEW|{username}|{password}"
             else:
                 auth_string = f"{username}|{password}"

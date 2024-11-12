@@ -66,49 +66,35 @@ class ChatServer:
         """Modified handle_client method with authentication and debugging"""
         try:
             # Receive authentication data
-            auth_data = client_socket.recv(1024).decode('utf-8').split(':')
+            auth_data = client_socket.recv(1024).decode('utf-8').split('|')
             
-            # Debug: Print the received data
+            # Debug: Print the received data to check format
             print(f"DEBUG - Received auth data: {auth_data}")
             
-            if len(auth_data) != 2:
-                client_socket.send("Invalid authentication format.".encode('utf-8'))
-                return
-            
-            username, password = auth_data
-            
-            # Check if it's a registration request
-            if username.startswith("NEW:"):
-                username = username[4:]  # Remove "NEW:" prefix
+            # Check format: registration should start with "NEW"
+            if len(auth_data) == 3 and auth_data[0] == "NEW":
+                username = auth_data[1]
+                password = auth_data[2]
                 if self.register_user(username, password):
                     client_socket.send("Registration successful!".encode('utf-8'))
                 else:
                     client_socket.send("Username already exists.".encode('utf-8'))
                     return
+            elif len(auth_data) == 2:
+                username, password = auth_data
+                # Authenticate existing user
+                if not self.authenticate_user(username, password):
+                    client_socket.send("Invalid credentials.".encode('utf-8'))
+                    return
+                
+                # Successful authentication, proceed with chat
+                self.clients[client_socket] = (username, None, "online")
+                self.broadcast(f"{username} joined the chat!", sender=client_socket)
+                client_socket.send("Welcome to the chat! Type /help for commands.".encode('utf-8'))
             
-            # Authenticate existing user
-            elif not self.authenticate_user(username, password):
-                client_socket.send("Invalid credentials.".encode('utf-8'))
+            else:
+                client_socket.send("Invalid authentication format.".encode('utf-8'))
                 return
-            
-            # If authentication successful, proceed with chat
-            self.clients[client_socket] = (username, None, "online")
-            self.broadcast(f"{username} joined the chat!", sender=client_socket)
-            client_socket.send("Welcome to the chat! Type /help for commands.".encode('utf-8'))
-
-            while True:
-                message = client_socket.recv(1024).decode('utf-8')
-                if message:
-                    if message.startswith('/'):
-                        self.process_command(client_socket, message)
-                    else:
-                        username, channel, status = self.clients[client_socket]
-                        if channel:
-                            self.broadcast(f"{username}: {message}", sender=client_socket, target_channel=channel)
-                        else:
-                            self.broadcast(f"{username}: {message}", sender=client_socket)
-                else:
-                    break
         except Exception as e:
             print(f"Error handling client: {e}")
         finally:
