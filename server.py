@@ -11,10 +11,14 @@ class ChatServer:
         self.server.listen()
         self.server.settimeout(1)
        
-        self.clients = {}  # {client_socket: (username, current_channel)}
+        self.clients = {}  # {client_socket: (username, current_channel, status)}
         self.channels = {}  # {channel_name: [client_sockets]}
+        self.user_credentials = {}  # {username: password}
         self.shutdown_flag = False
         print(f"Server running on {host}:{port}")
+
+        # Load saved user credentials (you can replace this with a database later)
+        self.load_user_credentials()
 
     def broadcast(self, message, sender=None, target_channel=None):
         """Send message to all clients or only within a specific channel"""
@@ -33,11 +37,53 @@ class ChatServer:
                 except:
                     self.remove_client(client)
 
+
+    def load_user_credentials(self):
+        """Load saved user credentials (simplified version using a dictionary)"""
+        # In a real application, you'd load this from a database or file
+        self.user_credentials = {
+            'admin': 'admin123',  # Just for testing
+        }
+
+    def authenticate_user(self, username, password):
+        """Check if username and password are valid"""
+        return username in self.user_credentials and self.user_credentials[username] == password
+
+    def register_user(self, username, password):
+        """Register a new user"""
+        if username in self.user_credentials:
+            return False
+        self.user_credentials[username] = password
+        return True
+
+
     def handle_client(self, client_socket):
-        """Handle individual client connection"""
+        """Modified handle_client method with authentication"""
         try:
-            username = client_socket.recv(1024).decode('utf-8')
-            self.clients[client_socket] = (username, None)
+            # Receive authentication data
+            auth_data = client_socket.recv(1024).decode('utf-8').split(':')
+            if len(auth_data) != 2:
+                client_socket.send("Invalid authentication format.".encode('utf-8'))
+                return
+            
+            username, password = auth_data
+            
+            # Check if it's a registration request
+            if username.startswith("NEW:"):
+                username = username[4:]  # Remove "NEW:" prefix
+                if self.register_user(username, password):
+                    client_socket.send("Registration successful!".encode('utf-8'))
+                else:
+                    client_socket.send("Username already exists.".encode('utf-8'))
+                    return
+            
+            # Authenticate existing user
+            elif not self.authenticate_user(username, password):
+                client_socket.send("Invalid credentials.".encode('utf-8'))
+                return
+            
+            # If authentication successful, proceed with chat
+            self.clients[client_socket] = (username, None, "online")
             self.broadcast(f"{username} joined the chat!", sender=client_socket)
             client_socket.send("Welcome to the chat! Type /help for commands.".encode('utf-8'))
 
@@ -47,26 +93,62 @@ class ChatServer:
                     if message.startswith('/'):
                         self.process_command(client_socket, message)
                     else:
-                        username, channel = self.clients[client_socket]
+                        username, channel, status = self.clients[client_socket]
                         if channel:
                             self.broadcast(f"{username}: {message}", sender=client_socket, target_channel=channel)
                         else:
                             self.broadcast(f"{username}: {message}", sender=client_socket)
                 else:
                     break
-        except:
-            pass
+        except Exception as e:
+            print(f"Error handling client: {e}")
         finally:
             self.remove_client(client_socket)
 
     def process_command(self, client_socket, command):
-        """Process commands from clients"""
-        username, current_channel = self.clients[client_socket]
+        """Enhanced process_command method with user management commands"""
+        username, current_channel, status = self.clients[client_socket]
         tokens = command.split()
         cmd = tokens[0].lower()
-       
+        
         if cmd == '/help':
-            client_socket.send("Commands:\n/help\n/list\n/join <channel>\n/leave\n/quit\n".encode('utf-8'))
+            help_text = """Commands:
+                                    /help - Show this help message
+                                    /list - List available channels
+                                    /join <channel> - Join a channel
+                                    /leave - Leave current channel
+                                    /users - List all online users
+                                    /nick <new_name> - Change your nickname
+                                    /status <away/online> - Change your status
+                                    /msg <user> <message> - Send private message
+                                    /quit - Disconnect from server"""
+            client_socket.send(help_text.encode('utf-8'))
+            
+        elif cmd == '/users':
+            users_list = []
+            for sock, (name, chan, stat) in self.clients.items():
+                users_list.append(f"{name} ({stat})")
+            client_socket.send(f"Online users: {', '.join(users_list)}".encode('utf-8'))
+            
+        elif cmd == '/nick':
+            if len(tokens) < 2:
+                client_socket.send("Usage: /nick <new_nickname>".encode('utf-8'))
+                return
+            new_nick = tokens[1]
+            if new_nick in [name for _, (name, _, _) in self.clients.items()]:
+                client_socket.send("Nickname already taken.".encode('utf-8'))
+                return
+            old_nick = username
+            self.clients[client_socket] = (new_nick, current_channel, status)
+            self.broadcast(f"{old_nick} is now known as {new_nick}")
+            
+        elif cmd == '/status':
+            if len(tokens) < 2 or tokens[1] not in ['away', 'online']:
+                client_socket.send("Usage: /status <away/online>".encode('utf-8'))
+                return
+            new_status = tokens[1]
+            self.clients[client_socket] = (username, current_channel, new_status)
+            self.broadcast(f"{username} is now {new_status}")
         elif cmd == '/list':
             channels = "Available channels: " + ", ".join(self.channels.keys())
             client_socket.send(channels.encode('utf-8'))
