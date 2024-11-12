@@ -63,15 +63,15 @@ class ChatServer:
 
 
     def handle_client(self, client_socket):
-        """Modified handle_client method with authentication and debugging"""
+        """Handle client with the updated registration and login format"""
         try:
-            # Receive authentication data
+            # Receive and split authentication data on '|'
             auth_data = client_socket.recv(1024).decode('utf-8').split('|')
-            
-            # Debug: Print the received data to check format
+
+            # Debug: Print received data to check the format
             print(f"DEBUG - Received auth data: {auth_data}")
-            
-            # Check format: registration should start with "NEW"
+
+            # Check if this is a registration request
             if len(auth_data) == 3 and auth_data[0] == "NEW":
                 username = auth_data[1]
                 password = auth_data[2]
@@ -80,25 +80,28 @@ class ChatServer:
                 else:
                     client_socket.send("Username already exists.".encode('utf-8'))
                     return
+            # Check if this is a login request
             elif len(auth_data) == 2:
                 username, password = auth_data
-                # Authenticate existing user
+                
+                # Authenticate the user
                 if not self.authenticate_user(username, password):
                     client_socket.send("Invalid credentials.".encode('utf-8'))
                     return
                 
-                # Successful authentication, proceed with chat
+                # On successful login, add to clients and notify others
                 self.clients[client_socket] = (username, None, "online")
                 self.broadcast(f"{username} joined the chat!", sender=client_socket)
                 client_socket.send("Welcome to the chat! Type /help for commands.".encode('utf-8'))
-            
             else:
+                # Send error if data format doesn't match expectations
                 client_socket.send("Invalid authentication format.".encode('utf-8'))
                 return
         except Exception as e:
             print(f"Error handling client: {e}")
         finally:
             self.remove_client(client_socket)
+
 
 
     def process_command(self, client_socket, command):

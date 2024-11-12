@@ -28,9 +28,8 @@ class ChatClient:
         try:
             self.client.connect((self.host, self.port))
             
-            # Handle authentication
-            username, password = self.register_or_login()
-            auth_string = f"{username}:{password}"
+            # Get the auth string from register_or_login
+            auth_string = self.register_or_login()  # This already returns the correctly formatted string
             
             # Debug: Print the auth string to verify the format
             print(f"DEBUG - Sending auth string: {auth_string}")
@@ -47,7 +46,7 @@ class ChatClient:
                 return False
             
             print(response)
-            self.username = username.replace("NEW:", "")
+            self.username = auth_string.split('|')[1] if 'NEW|' in auth_string else auth_string.split('|')[0]
             
             # Start message threads
             threading.Thread(target=self.receive_messages, daemon=True).start()
