@@ -153,14 +153,25 @@ class ChatServer:
                 /quit - Disconnect from server"""
                 client_socket.send(help_text.encode('utf-8'))
             
+            elif cmd == '/create':
+                if len(tokens) < 3:
+                    client_socket.send("Usage: /create <channel> <password>".encode('utf-8'))
+                else:
+                    channel_name, password = tokens[1], tokens[2]
+                    if channel_name in self.channels:
+                        client_socket.send("Channel already exists.".encode('utf-8'))
+                    else:
+                        self.channels[channel_name] = {'clients': [], 'password': password}
+                        client_socket.send(f"Private channel {channel_name} created.".encode('utf-8'))
+
             elif cmd == '/join':
                 if len(tokens) < 2:
-                    client_socket.send("Usage: /join <channel>".encode('utf-8'))
+                    client_socket.send("Usage: /join <channel> [password]".encode('utf-8'))
                 else:
-                    channel = tokens[1]
-                    if current_channel:
-                        self.leave_channel(client_socket)
-                    self.join_channel(client_socket, channel)
+                    channel_name = tokens[1]
+                    password = tokens[2] if len(tokens) > 2 else None
+                    self.join_channel(client_socket, channel_name, password)
+
             
             elif cmd == '/leave':
                 if current_channel:
@@ -183,11 +194,18 @@ class ChatServer:
             print(f"Error processing command: {e}")
             self.remove_client(client_socket)
 
-    def join_channel(self, client_socket, channel_name):
-        """Join a client to a channel"""
+    def join_channel(self, client_socket, channel_name, password=None):
+        """Join a client to a channel, checking for private access if needed"""
         if channel_name not in self.channels:
-            self.channels[channel_name] = []
+            # If private, store the password and restrict access
+            self.channels[channel_name] = {'clients': [], 'password': password}
         
+        if self.channels[channel_name].get('password') and self.channels[channel_name]['password'] != password:
+            client_socket.send("Incorrect password for private channel.".encode('utf-8'))
+            return
+
+        self.channels[channel_name]['clients'].append(client_socket)
+  
         if client_socket not in self.channels[channel_name]:
             self.channels[channel_name].append(client_socket)
             username, _, status = self.clients[client_socket]

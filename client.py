@@ -95,6 +95,10 @@ class ChatClient:
                     self.running = False
                     self.client.send(message.encode('utf-8'))
                     break
+                elif message.startswith('/join') and len(message.split()) == 2:
+                    password = input("Enter channel password: ")
+                    message += f" {password}"
+                    
                 elif message:
                     self.client.send(message.encode('utf-8'))
         except Exception as e:
