@@ -23,7 +23,12 @@ class ChatServer:
     def broadcast(self, message, sender=None, target_channel=None):
         """Send message to all clients or only within a specific channel"""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        formatted_message = f"[{timestamp}] {message}"
+        
+        # Format message differently based on whether it's a channel message or broadcast
+        if target_channel:
+            formatted_message = f"[{timestamp}][{target_channel}] {message}"
+        else:
+            formatted_message = f"[{timestamp}] {message}"
         
         try:
             if target_channel:
