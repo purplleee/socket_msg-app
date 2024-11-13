@@ -3,7 +3,7 @@ import threading
 from datetime import datetime
 
 class ChatServer:
-    def __init__(self, host='127.0.0.1', port=12345):
+    def __init__(self, host='127.0.0.1', port=55555):
         self.host = host
         self.port = port
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -23,21 +23,28 @@ class ChatServer:
     def broadcast(self, message, sender=None, target_channel=None):
         """Send message to all clients or only within a specific channel"""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        message = f"[{timestamp}] {message}"
-
-        if target_channel:
-            clients = self.channels[target_channel]['clients']
-        else:
-            clients = list(self.clients.keys())  # Create a copy of keys to avoid runtime modification issues
-
-        for client in clients:
-            if client != sender and client in self.clients:  # Check if client still exists
-                try:
-                    self.clients[client][1] == target_channel  # Check if client is in the target channel
-                    client.send(message.encode('utf-8'))
-                except Exception as e:
-                    print(f"Error broadcasting message to client: {e}")
-                    self.remove_client(client)
+        formatted_message = f"[{timestamp}] {message}"
+        
+        try:
+            if target_channel:
+                # Send message only to clients in the specified channel
+                if target_channel in self.channels:
+                    for client in self.channels[target_channel]['clients']:
+                        if client != sender:
+                            try:
+                                client.send(formatted_message.encode('utf-8'))
+                            except:
+                                self.remove_client(client)
+            else:
+                # Broadcast to all connected clients
+                for client in list(self.clients.keys()):
+                    if client != sender:
+                        try:
+                            client.send(formatted_message.encode('utf-8'))
+                        except:
+                            self.remove_client(client)
+        except Exception as e:
+            print(f"Broadcast error: {e}")
 
     def load_user_credentials(self):
         """Load saved user credentials from file"""
@@ -68,27 +75,21 @@ class ChatServer:
             return False
 
     def handle_client(self, client_socket):
-        self.clients[client_socket] = (None, None, "connecting")  
-        # Rest of the handle_client function
+        """Handle client connection with proper error handling"""
         try:
             auth_data = client_socket.recv(1024).decode('utf-8').split('|')
             print(f"DEBUG - Received auth data: {auth_data}")
 
             if len(auth_data) == 3 and auth_data[0] == "NEW":
-                username = auth_data[1]
-                password = auth_data[2]
-                if self.register_user(username, password):
-                    client_socket.send("Registration successful!".encode('utf-8'))
-                else:
-                    client_socket.send("Username already exists.".encode('utf-8'))
-                    return
-
+                # ... handle registration ...
+                pass
             elif len(auth_data) == 2:
                 username, password = auth_data
                 if not self.authenticate_user(username, password):
                     client_socket.send("Invalid credentials.".encode('utf-8'))
                     return
                 
+                # Initialize client in the clients dictionary
                 self.clients[client_socket] = (username, None, "online")
                 client_socket.send("Welcome to the chat! Type /help for commands.".encode('utf-8'))
                 self.broadcast(f"{username} joined the chat!", sender=client_socket)
@@ -105,14 +106,14 @@ class ChatServer:
                         else:
                             username, current_channel, _ = self.clients[client_socket]
                             if current_channel:
-                                self.broadcast(f"{username}: {message}", sender=client_socket, target_channel=current_channel)
+                                formatted_msg = f"{username}: {message}"
+                                self.broadcast(formatted_msg, sender=client_socket, target_channel=current_channel)
                             else:
                                 client_socket.send("Join a channel first using /join <channel>".encode('utf-8'))
                     except Exception as e:
                         print(f"Error handling message: {e}")
                         break
-            else:
-                client_socket.send("Invalid authentication format.".encode('utf-8'))
+                        
         except Exception as e:
             print(f"Error handling client: {e}")
         finally:
@@ -137,88 +138,108 @@ class ChatServer:
 
     def process_command(self, client_socket, command):
         """Process client commands"""
-        username, current_channel, status = self.clients[client_socket]
-        tokens = command.split()
-        cmd = tokens[0].lower()
-
         try:
-            if cmd == '/help':
-                help_text = """Available commands:
-                /help - Show this help message
-                /list - List available channels
-                /join <channel> - Join a channel
-                /leave - Leave current channel
-                /users - List all online users
-                /nick <new_name> - Change your nickname
-                /status <away/online> - Change your status
-                /msg <user> <message> - Send private message
-                /quit - Disconnect from server"""
-                client_socket.send(help_text.encode('utf-8'))
-            
-            elif cmd == '/create':
-                if len(tokens) < 3:
-                    client_socket.send("Usage: /create <channel> <password>".encode('utf-8'))
-                else:
-                    channel_name, password = tokens[1], tokens[2]
-                    if channel_name in self.channels:
-                        client_socket.send("Channel already exists.".encode('utf-8'))
+            username, current_channel, status = self.clients[client_socket]
+            tokens = command.split()
+            cmd = tokens[0].lower()
+
+            if cmd.startswith('/'): # It's a command
+                if cmd == '/help':
+                    help_text = """Available commands:
+                    /help - Show this help message
+                    /list - List available channels
+                    /join <channel> - Join a channel
+                    /leave - Leave current channel
+                    /users - List all online users
+                    /nick <new_name> - Change your nickname
+                    /status <away/online> - Change your status
+                    /msg <user> <message> - Send private message
+                    /quit - Disconnect from server"""
+                    client_socket.send(help_text.encode('utf-8'))
+                    
+                elif cmd == '/create':
+                    if len(tokens) < 3:
+                        client_socket.send("Usage: /create <channel> <password>".encode('utf-8'))
                     else:
-                        self.channels[channel_name] = {'clients': [], 'password': password}
-                        client_socket.send(f"Private channel {channel_name} created.".encode('utf-8'))
-
-            elif cmd == '/join':
-                if len(tokens) < 2:
-                    client_socket.send("Usage: /join <channel> [password]".encode('utf-8'))
+                        channel_name, password = tokens[1], tokens[2]
+                        if channel_name in self.channels:
+                            client_socket.send("Channel already exists.".encode('utf-8'))
+                        else:
+                            self.channels[channel_name] = {'clients': [], 'password': password}
+                            client_socket.send(f"Private channel {channel_name} created.".encode('utf-8'))
+                            
+                elif cmd == '/join':
+                    if len(tokens) < 2:
+                        client_socket.send("Usage: /join <channel> [password]".encode('utf-8'))
+                    else:
+                        channel_name = tokens[1]
+                        password = tokens[2] if len(tokens) > 2 else None
+                        self.join_channel(client_socket, channel_name, password)
+                        
+                elif cmd == '/leave':
+                    if current_channel:
+                        self.leave_channel(client_socket)
+                    else:
+                        client_socket.send("You are not in any channel.".encode('utf-8'))
+                        
+                elif cmd == '/list':
+                    channels = list(self.channels.keys())
+                    response = "Available channels: " + (", ".join(channels) if channels else "No channels available")
+                    client_socket.send(response.encode('utf-8'))
+                    
+                elif cmd == '/quit':
+                    raise Exception("Client quit")
+                    
                 else:
-                    channel_name = tokens[1]
-                    password = tokens[2] if len(tokens) > 2 else None
-                    self.join_channel(client_socket, channel_name, password)
-
-            elif cmd == '/leave':
-                if current_channel:
-                    self.leave_channel(client_socket)
-                else:
-                    client_socket.send("You are not in any channel.".encode('utf-8'))
-
-            elif cmd == '/list':
-                channels = list(self.channels.keys())
-                response = "Available channels: " + (", ".join(channels) if channels else "No channels available")
-                client_socket.send(response.encode('utf-8'))
-
-            elif cmd == '/quit':
-                raise Exception("Client quit")
-
+                    client_socket.send("Unknown command. Type /help for available commands.".encode('utf-8'))
             else:
-                client_socket.send("Unknown command. Type /help for available commands.".encode('utf-8'))
+                # It's a regular message
                 if current_channel:
-                    self.broadcast(f"{username}: {command}", sender=client_socket, target_channel=current_channel)
+                    formatted_msg = f"{username}: {command}"
+                    self.broadcast(formatted_msg, sender=client_socket, target_channel=current_channel)
                 else:
                     client_socket.send("Join a channel first using /join <channel>".encode('utf-8'))
-
+                    
         except Exception as e:
             print(f"Error processing command: {e}")
             self.remove_client(client_socket)
 
     def join_channel(self, client_socket, channel_name, password=None):
         """Join a client to a channel, checking for private access if needed"""
-        if client_socket in self.clients:
-            username, current_channel, status = self.clients[client_socket]
-            if current_channel and current_channel != channel_name:
-                self.leave_channel(client_socket)  # Remove client from their current channel
+        try:
+            if client_socket in self.clients:
+                username, current_channel, status = self.clients[client_socket]
+                
+                # Leave current channel if in one
+                if current_channel:
+                    self.leave_channel(client_socket)
 
-        if channel_name not in self.channels:
-            # If private, store the password and restrict access
-            self.channels[channel_name] = {'clients': [], 'password': password}
+            # Create channel if it doesn't exist
+            if channel_name not in self.channels:
+                self.channels[channel_name] = {
+                    'clients': [],
+                    'password': password
+                }
 
-        if self.channels[channel_name].get('password') and self.channels[channel_name]['password'] != password:
-            client_socket.send("Incorrect password for private channel.".encode('utf-8'))
-            return
+            # Check password if channel is private
+            if self.channels[channel_name].get('password') and self.channels[channel_name]['password'] != password:
+                client_socket.send("Incorrect password for private channel.".encode('utf-8'))
+                return
 
-        if client_socket not in self.channels[channel_name]['clients']:
-            self.channels[channel_name]['clients'].append(client_socket)
-            self.clients[client_socket] = (username, channel_name, status)
-            self.broadcast(f"{username} joined {channel_name}.", target_channel=channel_name)
-            client_socket.send(f"Joined channel {channel_name}".encode('utf-8'))
+            # Add client to channel
+            if client_socket not in self.channels[channel_name]['clients']:
+                self.channels[channel_name]['clients'].append(client_socket)
+                username = self.clients[client_socket][0]
+                self.clients[client_socket] = (username, channel_name, self.clients[client_socket][2])
+                
+                # Notify channel about new user
+                join_message = f"{username} joined {channel_name}"
+                self.broadcast(join_message, sender=client_socket, target_channel=channel_name)
+                client_socket.send(f"Joined channel {channel_name}".encode('utf-8'))
+                
+        except Exception as e:
+            print(f"Error joining channel: {e}")
+            client_socket.send("Error joining channel.".encode('utf-8'))
 
     def leave_channel(self, client_socket):
         """Remove client from their current channel"""
