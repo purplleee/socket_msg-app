@@ -104,8 +104,8 @@ class ChatClient:
         except Exception as e:
             if self.running:
                 print(f"Error sending message: {e}")
+                self.running = False
         finally:
-            self.running = False
             self.client.close()
 
 if __name__ == "__main__":
