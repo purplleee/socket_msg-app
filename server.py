@@ -34,7 +34,8 @@ class ChatServer:
             if client != sender and client in self.clients:  # Check if client still exists
                 try:
                     client.send(message.encode('utf-8'))
-                except:
+                except Exception as e:
+                    print(f"Error broadcasting message to client: {e}")
                     self.remove_client(client)
 
 
@@ -218,9 +219,9 @@ class ChatServer:
         if client_socket in self.clients:
             username, current_channel, status = self.clients[client_socket]
             if current_channel and current_channel in self.channels:
-                if client_socket in self.channels[current_channel]:
-                    self.channels[current_channel].remove(client_socket)
-                    if not self.channels[current_channel]:  # Remove empty channel
+                if client_socket in self.channels[current_channel]['clients']:
+                    self.channels[current_channel]['clients'].remove(client_socket)
+                    if not self.channels[current_channel]['clients']:  # Remove empty channel
                         del self.channels[current_channel]
                     self.clients[client_socket] = (username, None, status)
                     self.broadcast(f"{username} left {current_channel}.", target_channel=current_channel)
