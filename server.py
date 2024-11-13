@@ -3,7 +3,7 @@ import threading
 from datetime import datetime
 
 class ChatServer:
-    def __init__(self, host='127.0.0.1', port=55555):
+    def __init__(self, host='127.0.0.1', port=12345):
         self.host = host
         self.port = port
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -206,9 +206,9 @@ class ChatServer:
             return
 
         self.channels[channel_name]['clients'].append(client_socket)
-  
-        if client_socket not in self.channels[channel_name]:
-            self.channels[channel_name].append(client_socket)
+
+        if client_socket not in self.channels[channel_name]['clients']:
+            self.channels[channel_name]['clients'].append(client_socket)
             username, _, status = self.clients[client_socket]
             self.clients[client_socket] = (username, channel_name, status)
             self.broadcast(f"{username} joined {channel_name}.", target_channel=channel_name)

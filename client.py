@@ -3,7 +3,7 @@ import threading
 import sys
 
 class ChatClient:
-    def __init__(self, host='127.0.0.1', port=55555):
+    def __init__(self, host='127.0.0.1', port=12345):
         self.host = host
         self.port = port
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -98,7 +98,7 @@ class ChatClient:
                 elif message.startswith('/join') and len(message.split()) == 2:
                     password = input("Enter channel password: ")
                     message += f" {password}"
-                    
+                    self.client.send(message.encode('utf-8'))
                 elif message:
                     self.client.send(message.encode('utf-8'))
         except Exception as e:
