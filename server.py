@@ -106,10 +106,14 @@ class ChatServer:
                         else:
                             username, current_channel, _ = self.clients[client_socket]
                             if current_channel:
+                                # Send to specific channel
                                 formatted_msg = f"{username}: {message}"
                                 self.broadcast(formatted_msg, sender=client_socket, target_channel=current_channel)
                             else:
-                                client_socket.send("Join a channel first using /join <channel>".encode('utf-8'))
+                                # Broadcast to all users
+                                formatted_msg = f"{username}: {message}"
+                                self.broadcast(formatted_msg, sender=client_socket)
+                                
                     except Exception as e:
                         print(f"Error handling message: {e}")
                         break
