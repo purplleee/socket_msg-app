@@ -95,17 +95,23 @@ class ChatClient:
         """Send messages to server"""
         try:
             while self.running:
-                message = input()
-                if message.lower() == '/quit':
+                try:
+                    message = input()
+                    if message.lower() == '/quit':
+                        self.running = False
+                        self.client.send(message.encode('utf-8'))
+                        break
+                    elif message.startswith('/join') and len(message.split()) == 2:
+                        password = input("Enter channel password: ")
+                        message += f" {password}"
+                        self.client.send(message.encode('utf-8'))
+                    elif message:
+                        self.client.send(message.encode('utf-8'))
+                except KeyboardInterrupt:
+                    print("\nDisconnecting from server...")
                     self.running = False
-                    self.client.send(message.encode('utf-8'))
+                    self.client.send('/quit'.encode('utf-8'))
                     break
-                elif message.startswith('/join') and len(message.split()) == 2:
-                    password = input("Enter channel password: ")
-                    message += f" {password}"
-                    self.client.send(message.encode('utf-8'))
-                elif message:
-                    self.client.send(message.encode('utf-8'))
         except Exception as e:
             if self.running:
                 print(f"Error sending message: {e}")
@@ -115,11 +121,15 @@ class ChatClient:
 
 if __name__ == "__main__":
     client = ChatClient()
-    while True:
-        if not client.connect():
-            choice = input("Try again? (y/n): ")
-            if choice.lower() != 'y':
+    try:
+        while True:
+            if not client.connect():
+                choice = input("Try again? (y/n): ")
+                if choice.lower() != 'y':
+                    break
+            else:
                 break
-        else:
-            break
-    sys.exit(0)
+    except KeyboardInterrupt:
+        print("\nProgram terminated by user.")
+    finally:
+        sys.exit(0)
