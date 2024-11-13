@@ -142,15 +142,15 @@ class ChatServer:
         try:
             if cmd == '/help':
                 help_text = """Available commands:
-                                /help - Show this help message
-                                /list - List available channels
-                                /join <channel> - Join a channel
-                                /leave - Leave current channel
-                                /users - List all online users
-                                /nick <new_name> - Change your nickname
-                                /status <away/online> - Change your status
-                                /msg <user> <message> - Send private message
-                                /quit - Disconnect from server"""
+                /help - Show this help message
+                /list - List available channels
+                /join <channel> - Join a channel
+                /leave - Leave current channel
+                /users - List all online users
+                /nick <new_name> - Change your nickname
+                /status <away/online> - Change your status
+                /msg <user> <message> - Send private message
+                /quit - Disconnect from server"""
                 client_socket.send(help_text.encode('utf-8'))
             
             elif cmd == '/join':
