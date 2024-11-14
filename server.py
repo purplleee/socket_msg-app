@@ -59,7 +59,7 @@ class ChatServer:
                     username, password = line.strip().split(':')
                     self.user_credentials[username] = password
         except FileNotFoundError:
-            self.user_credentials = {'admin': 'admin123'}  # Default admin account
+            self.user_credentials = {'admin': 'admin123'}  # For test
 
     def authenticate_user(self, username, password):
         """Check if username and password are valid"""
@@ -152,17 +152,13 @@ class ChatServer:
             tokens = command.split()
             cmd = tokens[0].lower()
 
-            if cmd.startswith('/'): # It's a command
+            if cmd.startswith('/'): # if it's a command
                 if cmd == '/help':
                     help_text = """Available commands:
                     /help - Show this help message
                     /list - List available channels
                     /join <channel> - Join a channel
                     /leave - Leave current channel
-                    /users - List all online users
-                    /nick <new_name> - Change your nickname
-                    /status <away/online> - Change your status
-                    /msg <user> <message> - Send private message
                     /quit - Disconnect from server"""
                     client_socket.send(help_text.encode('utf-8'))
                     
