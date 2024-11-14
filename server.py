@@ -175,7 +175,7 @@ class ChatServer:
                             
                 elif cmd == '/join':
                     if len(tokens) < 2:
-                        client_socket.send("Usage: /join <channel> [password]".encode('utf-8'))
+                        client_socket.send("Usage: /join <channel>".encode('utf-8'))
                     else:
                         channel_name = tokens[1]
                         password = tokens[2] if len(tokens) > 2 else None
