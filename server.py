@@ -85,11 +85,17 @@ class ChatServer:
             auth_data = client_socket.recv(1024).decode('utf-8').split('|')
             print(f"DEBUG - Received auth data: {auth_data}")
 
-            if len(auth_data) == 3 and auth_data[0] == "NEW":
-                # ... handle registration ...
-                pass
-            elif len(auth_data) == 2:
-                username, password = auth_data
+            if len(auth_data) == 3 and auth_data[0] == "REGISTER":
+                # Handle registration
+                username, password = auth_data[1], auth_data[2]
+                if self.register_user(username, password):
+                    client_socket.send("Registration successful! Please login with your credentials.".encode('utf-8'))
+                else:
+                    client_socket.send("Username already exists.".encode('utf-8'))
+                return
+            elif len(auth_data) == 3 and auth_data[0] == "LOGIN":
+                # Handle login
+                username, password = auth_data[1], auth_data[2]
                 if not self.authenticate_user(username, password):
                     client_socket.send("Invalid credentials.".encode('utf-8'))
                     return
@@ -118,10 +124,11 @@ class ChatServer:
                                 # Broadcast to all users
                                 formatted_msg = f"{username}: {message}"
                                 self.broadcast(formatted_msg, sender=client_socket)
-                                
                     except Exception as e:
                         print(f"Error handling message: {e}")
                         break
+            else:
+                client_socket.send("Invalid authentication format.".encode('utf-8'))
                         
         except Exception as e:
             print(f"Error handling client: {e}")

@@ -28,9 +28,9 @@ class ChatClient:
                 continue
             
             if choice == "2":
-                auth_string = f"NEW|{username}|{password}"
+                auth_string = f"REGISTER|{username}|{password}"
             else:
-                auth_string = f"{username}|{password}"
+                auth_string = f"LOGIN|{username}|{password}"
             
             return auth_string
     
@@ -44,20 +44,13 @@ class ChatClient:
             
             self.client.send(auth_string.encode('utf-8'))
             response = self.client.recv(1024).decode('utf-8')
-            print(f"DEBUG - Server response: {response}")
-            
-            if "Invalid" in response or "exists" in response:
-                print(response)
-                self.client.close()
-                return False
-            
             print(response)
-            self.username = auth_string.split('|')[1] if 'NEW|' in auth_string else auth_string.split('|')[0]
             
-            if 'NEW|' in auth_string:
-                print("Please log in with your new credentials.")
+            if "Invalid" in response or "exists" in response or "Registration successful" in response:
                 self.client.close()
                 return False
+            
+            self.username = auth_string.split('|')[1]
             
             # Start message threads
             receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
